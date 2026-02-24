@@ -4,19 +4,24 @@ const ctx = canvas.getContext("2d");
 canvas.width = 350;
 canvas.height = 600;
 
-// Start system
+/* ---------------- GAME STATE ---------------- */
 let gameStarted = false;
 let gameOver = false;
+let babies = 0;
+let frame = 0;
 
+/* ---------------- ELEMENTS ---------------- */
 const startScreen = document.getElementById("startScreen");
+const gameOverScreen = document.getElementById("gameOverScreen");
 const startBtn = document.getElementById("startBtn");
+const restartBtn = document.getElementById("restartBtn");
 const scoreDisplay = document.getElementById("score");
+const finalScoreText = document.getElementById("finalScore");
 
-// Sounds
 const bgMusic = document.getElementById("bgMusic");
 const victorySound = document.getElementById("victorySound");
 
-// Images
+/* ---------------- IMAGES ---------------- */
 const spermImg = new Image();
 spermImg.src = "sperm.png";
 
@@ -26,7 +31,7 @@ gateTop.src = "gate-top.png";
 const gateBottom = new Image();
 gateBottom.src = "gate-bottom.png";
 
-// Player
+/* ---------------- PLAYER ---------------- */
 let sperm = {
   x: 80,
   y: 200,
@@ -36,32 +41,9 @@ let sperm = {
   velocity: 0
 };
 
+/* ---------------- WALLS ---------------- */
 let walls = [];
-let frame = 0;
-let babies = 0;
 
-// Draw sperm
-function drawSperm() {
-  ctx.drawImage(
-    spermImg,
-    sperm.x - sperm.radius,
-    sperm.y - sperm.radius,
-    sperm.radius * 2,
-    sperm.radius * 2
-  );
-}
-
-// Physics
-function updateSperm() {
-  sperm.velocity += sperm.gravity;
-  sperm.y += sperm.velocity;
-
-  if (sperm.y > canvas.height || sperm.y < 0) {
-    endGame();
-  }
-}
-
-// Walls
 function createWall() {
   let gap = 150;
   let topHeight = Math.random() * 250 + 50;
@@ -103,7 +85,25 @@ function drawWalls() {
   walls = walls.filter(w => w.x > -100);
 }
 
-// Swim
+/* ---------------- PLAYER UPDATE ---------------- */
+function updateSperm() {
+  sperm.velocity += sperm.gravity;
+  sperm.y += sperm.velocity;
+
+  if (sperm.y < 0 || sperm.y > canvas.height) {
+    endGame();
+  }
+
+  ctx.drawImage(
+    spermImg,
+    sperm.x - sperm.radius,
+    sperm.y - sperm.radius,
+    sperm.radius * 2,
+    sperm.radius * 2
+  );
+}
+
+/* ---------------- CONTROLS ---------------- */
 function swim() {
   if (!gameStarted) return;
   sperm.velocity = sperm.lift;
@@ -112,14 +112,13 @@ function swim() {
 document.addEventListener("click", swim);
 document.addEventListener("touchstart", swim);
 
-// Game loop
+/* ---------------- GAME LOOP ---------------- */
 function gameLoop() {
   if (!gameStarted || gameOver) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   updateSperm();
-  drawSperm();
 
   if (frame % 100 === 0) createWall();
   drawWalls();
@@ -128,23 +127,39 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// Start button
+/* ---------------- START BUTTON ---------------- */
 startBtn.addEventListener("click", () => {
+
   gameStarted = true;
   startScreen.style.display = "none";
   scoreDisplay.style.display = "block";
 
+  // Start background music
+  bgMusic.currentTime = 0;
   bgMusic.play();
+
   gameLoop();
 });
 
-// End game
+/* ---------------- END GAME ---------------- */
 function endGame() {
-  gameOver = true;
-  victorySound.play();
 
-  setTimeout(() => {
-    alert("Journey ended! Babies: " + babies);
-    location.reload();
-  }, 200);
+  if (gameOver) return;
+  gameOver = true;
+
+  // Stop background music
+  bgMusic.pause();
+
+  // Show result screen
+  finalScoreText.innerText = "Babies: " + babies;
+  gameOverScreen.style.display = "flex";
+
+  // Play victory sound
+  victorySound.currentTime = 0;
+  victorySound.play();
 }
+
+/* ---------------- RESTART ---------------- */
+restartBtn.addEventListener("click", () => {
+  location.reload();
+});
