@@ -4,6 +4,15 @@ const ctx = canvas.getContext("2d");
 canvas.width = 350;
 canvas.height = 600;
 
+// Start system
+let gameStarted = false;
+let gameOver = false;
+
+const startScreen = document.getElementById("startScreen");
+const startBtn = document.getElementById("startBtn");
+const scoreDisplay = document.getElementById("score");
+
+
 // Images
 const spermImg = new Image();
 spermImg.src = "sperm.png";
