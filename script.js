@@ -12,6 +12,9 @@ const startScreen = document.getElementById("startScreen");
 const startBtn = document.getElementById("startBtn");
 const scoreDisplay = document.getElementById("score");
 
+// Sounds
+const bgMusic = document.getElementById("bgMusic");
+const victorySound = document.getElementById("victorySound");
 
 // Images
 const spermImg = new Image();
@@ -23,7 +26,7 @@ gateTop.src = "gate-top.png";
 const gateBottom = new Image();
 gateBottom.src = "gate-bottom.png";
 
-// Game objects
+// Player
 let sperm = {
   x: 80,
   y: 200,
@@ -36,12 +39,6 @@ let sperm = {
 let walls = [];
 let frame = 0;
 let babies = 0;
-let gameOver = false;
-
-// Sounds
-const bgMusic = document.getElementById("bgMusic");
-const victorySound = document.getElementById("victorySound");
-let musicStarted = false;
 
 // Draw sperm
 function drawSperm() {
@@ -52,31 +49,19 @@ function drawSperm() {
     sperm.radius * 2,
     sperm.radius * 2
   );
-
-  // Tail animation
-  ctx.beginPath();
-  ctx.moveTo(sperm.x - sperm.radius, sperm.y);
-  for (let i = 0; i < 5; i++) {
-    let x = sperm.x - sperm.radius - i * 10;
-    let y = sperm.y + Math.sin(frame * 0.3 + i) * 6;
-    ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 2;
-  ctx.stroke();
 }
 
-// Update sperm
+// Physics
 function updateSperm() {
   sperm.velocity += sperm.gravity;
   sperm.y += sperm.velocity;
 
-  if (sperm.y + sperm.radius > canvas.height || sperm.y - sperm.radius < 0) {
+  if (sperm.y > canvas.height || sperm.y < 0) {
     endGame();
   }
 }
 
-// Create walls
+// Walls
 function createWall() {
   let gap = 150;
   let topHeight = Math.random() * 250 + 50;
@@ -90,36 +75,19 @@ function createWall() {
   });
 }
 
-// Draw walls
 function drawWalls() {
   walls.forEach(wall => {
 
     wall.x -= 2;
 
-    // Top gate
-    ctx.drawImage(
-      gateTop,
-      wall.x,
-      0,
-      wall.width,
-      wall.top
-    );
-
-    // Bottom gate
-    ctx.drawImage(
-      gateBottom,
-      wall.x,
-      wall.bottom,
-      wall.width,
-      canvas.height - wall.bottom
-    );
+    ctx.drawImage(gateTop, wall.x, 0, wall.width, wall.top);
+    ctx.drawImage(gateBottom, wall.x, wall.bottom, wall.width, canvas.height);
 
     // Collision
     if (
       sperm.x + sperm.radius > wall.x &&
       sperm.x - sperm.radius < wall.x + wall.width &&
-      (sperm.y - sperm.radius < wall.top ||
-       sperm.y + sperm.radius > wall.bottom)
+      (sperm.y < wall.top || sperm.y > wall.bottom)
     ) {
       endGame();
     }
@@ -128,61 +96,55 @@ function drawWalls() {
     if (!wall.passed && wall.x + wall.width < sperm.x) {
       babies++;
       wall.passed = true;
-      document.getElementById("score").innerText = "Babies: " + babies;
-
-      if (babies % 10 === 0) {
-        victorySound.currentTime = 0;
-        victorySound.play();
-      }
+      scoreDisplay.innerText = "Babies: " + babies;
     }
   });
 
-  walls = walls.filter(wall => wall.x + wall.width > 0);
+  walls = walls.filter(w => w.x > -100);
 }
 
-// Tap to swim
+// Swim
 function swim() {
+  if (!gameStarted) return;
   sperm.velocity = sperm.lift;
-
-  if (!musicStarted) {
-    bgMusic.play();
-    musicStarted = true;
-  }
 }
 
-// End game
-function endGame() {
-  gameOver = true;
-  bgMusic.pause();
-  victorySound.play();
-
-  setTimeout(() => {
-    alert("Journey ended! Total babies: " + babies);
-    location.reload();
-  }, 200);
-}
+document.addEventListener("click", swim);
+document.addEventListener("touchstart", swim);
 
 // Game loop
 function gameLoop() {
-  if (gameOver) return;
+  if (!gameStarted || gameOver) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   updateSperm();
   drawSperm();
 
-  if (frame % 100 === 0) {
-    createWall();
-  }
-
+  if (frame % 100 === 0) createWall();
   drawWalls();
 
   frame++;
   requestAnimationFrame(gameLoop);
 }
 
-// Controls
-document.addEventListener("click", swim);
-document.addEventListener("touchstart", swim);
+// Start button
+startBtn.addEventListener("click", () => {
+  gameStarted = true;
+  startScreen.style.display = "none";
+  scoreDisplay.style.display = "block";
 
-gameLoop();
+  bgMusic.play();
+  gameLoop();
+});
+
+// End game
+function endGame() {
+  gameOver = true;
+  victorySound.play();
+
+  setTimeout(() => {
+    alert("Journey ended! Babies: " + babies);
+    location.reload();
+  }, 200);
+}
