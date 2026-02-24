@@ -1,127 +1,179 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.width = 350;
+canvas.height = 600;
 
-const startBtn = document.getElementById("startBtn");
-const startScreen = document.getElementById("startScreen");
-const resultScreen = document.getElementById("resultScreen");
-const finalScore = document.getElementById("finalScore");
+// Images
+const spermImg = new Image();
+spermImg.src = "sperm.png";
 
+const gateTop = new Image();
+gateTop.src = "gate-top.png";
+
+const gateBottom = new Image();
+gateBottom.src = "gate-bottom.png";
+
+// Game objects
+let sperm = {
+  x: 80,
+  y: 200,
+  radius: 20,
+  gravity: 0.5,
+  lift: -9,
+  velocity: 0
+};
+
+let walls = [];
+let frame = 0;
+let babies = 0;
+let gameOver = false;
+
+// Sounds
 const bgMusic = document.getElementById("bgMusic");
 const victorySound = document.getElementById("victorySound");
+let musicStarted = false;
 
-let gameStarted = false;
-let score = 0;
+// Draw sperm
+function drawSperm() {
+  ctx.drawImage(
+    spermImg,
+    sperm.x - sperm.radius,
+    sperm.y - sperm.radius,
+    sperm.radius * 2,
+    sperm.radius * 2
+  );
 
-let sperm = {
-  x: 50,
-  y: canvas.height / 2,
-  gravity: 0.5,
-  velocity: 0,
-  lift: -10
-};
-
-let gates = [];
-
-document.body.addEventListener("click", () => {
-  bgMusic.load();
-  victorySound.load();
-}, { once: true });
-
-startBtn.onclick = () => {
-  startScreen.style.display = "none";
-  resultScreen.style.display = "none";
-  gameStarted = true;
-  score = 0;
-  gates = [];
-
-  bgMusic.currentTime = 0;
-  bgMusic.play().catch(e => console.log(e));
-};
-
-canvas.addEventListener("click", () => {
-  if (gameStarted) sperm.velocity = sperm.lift;
-});
-
-function createGate() {
-  let gap = 150;
-  let top = Math.random() * (canvas.height - gap - 100) + 50;
-
-  gates.push({
-    x: canvas.width,
-    top: top,
-    bottom: top + gap
-  });
+  // Tail animation
+  ctx.beginPath();
+  ctx.moveTo(sperm.x - sperm.radius, sperm.y);
+  for (let i = 0; i < 5; i++) {
+    let x = sperm.x - sperm.radius - i * 10;
+    let y = sperm.y + Math.sin(frame * 0.3 + i) * 6;
+    ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
 
-function update() {
-  if (!gameStarted) return;
-
+// Update sperm
+function updateSperm() {
   sperm.velocity += sperm.gravity;
   sperm.y += sperm.velocity;
 
-  if (Math.random() < 0.02) createGate();
-
-  for (let i = 0; i < gates.length; i++) {
-    gates[i].x -= 3;
-
-    if (
-      sperm.x > gates[i].x &&
-      sperm.x < gates[i].x + 50 &&
-      (sperm.y < gates[i].top || sperm.y > gates[i].bottom)
-    ) {
-      gameOver();
-    }
-
-    if (gates[i].x + 50 < sperm.x && !gates[i].passed) {
-      score++;
-      gates[i].passed = true;
-      document.getElementById("score").innerText = "Babies: " + score;
-    }
+  if (sperm.y + sperm.radius > canvas.height || sperm.y - sperm.radius < 0) {
+    endGame();
   }
-
-  if (sperm.y > canvas.height || sperm.y < 0) gameOver();
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+// Create walls
+function createWall() {
+  let gap = 150;
+  let topHeight = Math.random() * 250 + 50;
 
-  ctx.fillStyle = "white";
-  ctx.beginPath();
-  ctx.arc(sperm.x, sperm.y, 10, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "green";
-  gates.forEach(g => {
-    ctx.fillRect(g.x, 0, 50, g.top);
-    ctx.fillRect(g.x, g.bottom, 50, canvas.height);
+  walls.push({
+    x: canvas.width,
+    top: topHeight,
+    bottom: topHeight + gap,
+    width: 70,
+    passed: false
   });
 }
 
-function gameOver() {
-  gameStarted = false;
+// Draw walls
+function drawWalls() {
+  walls.forEach(wall => {
 
-  // Stop background music
-  bgMusic.pause();
-  bgMusic.currentTime = 0;
+    wall.x -= 2;
 
-  // Show result
-  resultScreen.style.display = "flex";
-  finalScore.innerText = "Final Babies: " + score;
+    // Top gate
+    ctx.drawImage(
+      gateTop,
+      wall.x,
+      0,
+      wall.width,
+      wall.top
+    );
 
-  // Victory sound WITH result
-  setTimeout(() => {
-    victorySound.currentTime = 0;
-    victorySound.play().catch(e => console.log(e));
-  }, 100);
+    // Bottom gate
+    ctx.drawImage(
+      gateBottom,
+      wall.x,
+      wall.bottom,
+      wall.width,
+      canvas.height - wall.bottom
+    );
+
+    // Collision
+    if (
+      sperm.x + sperm.radius > wall.x &&
+      sperm.x - sperm.radius < wall.x + wall.width &&
+      (sperm.y - sperm.radius < wall.top ||
+       sperm.y + sperm.radius > wall.bottom)
+    ) {
+      endGame();
+    }
+
+    // Score
+    if (!wall.passed && wall.x + wall.width < sperm.x) {
+      babies++;
+      wall.passed = true;
+      document.getElementById("score").innerText = "Babies: " + babies;
+
+      if (babies % 10 === 0) {
+        victorySound.currentTime = 0;
+        victorySound.play();
+      }
+    }
+  });
+
+  walls = walls.filter(wall => wall.x + wall.width > 0);
 }
 
+// Tap to swim
+function swim() {
+  sperm.velocity = sperm.lift;
+
+  if (!musicStarted) {
+    bgMusic.play();
+    musicStarted = true;
+  }
+}
+
+// End game
+function endGame() {
+  gameOver = true;
+  bgMusic.pause();
+  victorySound.play();
+
+  setTimeout(() => {
+    alert("Journey ended! Total babies: " + babies);
+    location.reload();
+  }, 200);
+}
+
+// Game loop
 function gameLoop() {
-  update();
-  draw();
+  if (gameOver) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  updateSperm();
+  drawSperm();
+
+  if (frame % 100 === 0) {
+    createWall();
+  }
+
+  drawWalls();
+
+  frame++;
   requestAnimationFrame(gameLoop);
 }
+
+// Controls
+document.addEventListener("click", swim);
+document.addEventListener("touchstart", swim);
 
 gameLoop();
