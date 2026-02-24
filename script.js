@@ -1,165 +1,127 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = 350;
-canvas.height = 600;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-/* ---------------- GAME STATE ---------------- */
-let gameStarted = false;
-let gameOver = false;
-let babies = 0;
-let frame = 0;
-
-/* ---------------- ELEMENTS ---------------- */
-const startScreen = document.getElementById("startScreen");
-const gameOverScreen = document.getElementById("gameOverScreen");
 const startBtn = document.getElementById("startBtn");
-const restartBtn = document.getElementById("restartBtn");
-const scoreDisplay = document.getElementById("score");
-const finalScoreText = document.getElementById("finalScore");
+const startScreen = document.getElementById("startScreen");
+const resultScreen = document.getElementById("resultScreen");
+const finalScore = document.getElementById("finalScore");
 
 const bgMusic = document.getElementById("bgMusic");
 const victorySound = document.getElementById("victorySound");
 
-/* ---------------- IMAGES ---------------- */
-const spermImg = new Image();
-spermImg.src = "sperm.png";
+let gameStarted = false;
+let score = 0;
 
-const gateTop = new Image();
-gateTop.src = "gate-top.png";
-
-const gateBottom = new Image();
-gateBottom.src = "gate-bottom.png";
-
-/* ---------------- PLAYER ---------------- */
 let sperm = {
-  x: 80,
-  y: 200,
-  radius: 20,
+  x: 50,
+  y: canvas.height / 2,
   gravity: 0.5,
-  lift: -9,
-  velocity: 0
+  velocity: 0,
+  lift: -10
 };
 
-/* ---------------- WALLS ---------------- */
-let walls = [];
+let gates = [];
 
-function createWall() {
+document.body.addEventListener("click", () => {
+  bgMusic.load();
+  victorySound.load();
+}, { once: true });
+
+startBtn.onclick = () => {
+  startScreen.style.display = "none";
+  resultScreen.style.display = "none";
+  gameStarted = true;
+  score = 0;
+  gates = [];
+
+  bgMusic.currentTime = 0;
+  bgMusic.play().catch(e => console.log(e));
+};
+
+canvas.addEventListener("click", () => {
+  if (gameStarted) sperm.velocity = sperm.lift;
+});
+
+function createGate() {
   let gap = 150;
-  let topHeight = Math.random() * 250 + 50;
+  let top = Math.random() * (canvas.height - gap - 100) + 50;
 
-  walls.push({
+  gates.push({
     x: canvas.width,
-    top: topHeight,
-    bottom: topHeight + gap,
-    width: 70,
-    passed: false
+    top: top,
+    bottom: top + gap
   });
 }
 
-function drawWalls() {
-  walls.forEach(wall => {
+function update() {
+  if (!gameStarted) return;
 
-    wall.x -= 2;
-
-    ctx.drawImage(gateTop, wall.x, 0, wall.width, wall.top);
-    ctx.drawImage(gateBottom, wall.x, wall.bottom, wall.width, canvas.height);
-
-    // Collision
-    if (
-      sperm.x + sperm.radius > wall.x &&
-      sperm.x - sperm.radius < wall.x + wall.width &&
-      (sperm.y < wall.top || sperm.y > wall.bottom)
-    ) {
-      endGame();
-    }
-
-    // Score
-    if (!wall.passed && wall.x + wall.width < sperm.x) {
-      babies++;
-      wall.passed = true;
-      scoreDisplay.innerText = "Babies: " + babies;
-    }
-  });
-
-  walls = walls.filter(w => w.x > -100);
-}
-
-/* ---------------- PLAYER UPDATE ---------------- */
-function updateSperm() {
   sperm.velocity += sperm.gravity;
   sperm.y += sperm.velocity;
 
-  if (sperm.y < 0 || sperm.y > canvas.height) {
-    endGame();
+  if (Math.random() < 0.02) createGate();
+
+  for (let i = 0; i < gates.length; i++) {
+    gates[i].x -= 3;
+
+    if (
+      sperm.x > gates[i].x &&
+      sperm.x < gates[i].x + 50 &&
+      (sperm.y < gates[i].top || sperm.y > gates[i].bottom)
+    ) {
+      gameOver();
+    }
+
+    if (gates[i].x + 50 < sperm.x && !gates[i].passed) {
+      score++;
+      gates[i].passed = true;
+      document.getElementById("score").innerText = "Babies: " + score;
+    }
   }
 
-  ctx.drawImage(
-    spermImg,
-    sperm.x - sperm.radius,
-    sperm.y - sperm.radius,
-    sperm.radius * 2,
-    sperm.radius * 2
-  );
+  if (sperm.y > canvas.height || sperm.y < 0) gameOver();
 }
 
-/* ---------------- CONTROLS ---------------- */
-function swim() {
-  if (!gameStarted) return;
-  sperm.velocity = sperm.lift;
-}
-
-document.addEventListener("click", swim);
-document.addEventListener("touchstart", swim);
-
-/* ---------------- GAME LOOP ---------------- */
-function gameLoop() {
-  if (!gameStarted || gameOver) return;
-
+function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  updateSperm();
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(sperm.x, sperm.y, 10, 0, Math.PI * 2);
+  ctx.fill();
 
-  if (frame % 100 === 0) createWall();
-  drawWalls();
-
-  frame++;
-  requestAnimationFrame(gameLoop);
+  ctx.fillStyle = "green";
+  gates.forEach(g => {
+    ctx.fillRect(g.x, 0, 50, g.top);
+    ctx.fillRect(g.x, g.bottom, 50, canvas.height);
+  });
 }
 
-/* ---------------- START BUTTON ---------------- */
-startBtn.addEventListener("click", () => {
-
-  gameStarted = true;
-  startScreen.style.display = "none";
-  scoreDisplay.style.display = "block";
-
-  // Start background music
-  bgMusic.currentTime = 0;
-  bgMusic.play();
-
-  gameLoop();
-});
-
-/* ---------------- END GAME ---------------- */
-function endGame() {
-
-  if (gameOver) return;
-  gameOver = true;
+function gameOver() {
+  gameStarted = false;
 
   // Stop background music
   bgMusic.pause();
+  bgMusic.currentTime = 0;
 
-  // Show result screen
-  finalScoreText.innerText = "Babies: " + babies;
-  gameOverScreen.style.display = "flex";
+  // Show result
+  resultScreen.style.display = "flex";
+  finalScore.innerText = "Final Babies: " + score;
 
-  // Play victory sound
-  victorySound.currentTime = 0;
-  victorySound.play();
+  // Victory sound WITH result
+  setTimeout(() => {
+    victorySound.currentTime = 0;
+    victorySound.play().catch(e => console.log(e));
+  }, 100);
 }
 
-/* ---------------- RESTART ---------------- */
-restartBtn.addEventListener("click", () => {
-  location.reload();
-});
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
